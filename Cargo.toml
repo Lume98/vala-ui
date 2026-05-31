@@ -1,0 +1,15 @@
+[package]
+name = "vela-ui"
+version = "0.1.0"
+edition = "2024"
+description = "A lightweight Rust UI library for native Windows apps."
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+
+[dependencies]
+windows-sys = { version = "0.59", features = [
+    "Win32_Foundation",
+    "Win32_Graphics_Gdi",
+    "Win32_System_LibraryLoader",
+    "Win32_UI_WindowsAndMessaging",
+] }
