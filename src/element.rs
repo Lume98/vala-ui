@@ -62,6 +62,18 @@ impl Element {
     }
 
     pub fn with_attribute(mut self, name: impl Into<String>, value: impl Into<String>) -> Self {
+        let name = name.into();
+        let value = value.into();
+
+        if let Some(attribute) = self
+            .attributes
+            .iter_mut()
+            .find(|attribute| attribute.name == name)
+        {
+            attribute.value = value;
+            return self;
+        }
+
         self.attributes.push(Attribute::new(name, value));
         self
     }
