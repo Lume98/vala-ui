@@ -3,6 +3,7 @@ use crate::Element;
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct Style {
     width: Option<i32>,
+    min_width: Option<i32>,
     max_width: Option<i32>,
     height: Option<i32>,
     gap: Option<i32>,
@@ -42,6 +43,11 @@ impl Style {
 
     pub fn width(mut self, width: i32) -> Self {
         self.width = Some(width);
+        self
+    }
+
+    pub fn min_width(mut self, min_width: i32) -> Self {
+        self.min_width = Some(min_width);
         self
     }
 
@@ -88,6 +94,10 @@ impl Style {
     pub(crate) fn apply_to(&self, mut element: Element) -> Element {
         if let Some(width) = self.width {
             element = element.with_attribute("width", width.to_string());
+        }
+
+        if let Some(min_width) = self.min_width {
+            element = element.with_attribute("min_width", min_width.to_string());
         }
 
         if let Some(max_width) = self.max_width {

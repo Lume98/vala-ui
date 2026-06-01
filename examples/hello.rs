@@ -40,12 +40,14 @@ fn main() -> Result<()> {
         .child(
             Checkbox::new("Send product updates")
                 .name("updates")
-                .checked(true),
+                .checked(true)
+                .on_toggle("toggle-updates"),
         )
         .child(Spacer::new(4))
         .child(
             Button::new("Create account")
                 .primary()
+                .default()
                 .style(Style::new().height(36).font_weight(FontWeight::Semibold))
                 .on_click("create-account"),
         );

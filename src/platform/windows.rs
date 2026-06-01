@@ -15,11 +15,11 @@ use windows_sys::Win32::UI::Controls::EM_SETCUEBANNER;
 use windows_sys::Win32::UI::WindowsAndMessaging::{
     BM_SETCHECK, BN_CLICKED, BS_AUTOCHECKBOX, BS_DEFPUSHBUTTON, BS_PUSHBUTTON, CREATESTRUCTW,
     CW_USEDEFAULT, CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW,
-    ES_AUTOHSCROLL, GWLP_USERDATA, GetClientRect, GetMessageW, HMENU, IDC_ARROW, LoadCursorW, MSG,
-    MoveWindow, PostQuitMessage, RegisterClassW, SW_SHOW, SendMessageW, SetWindowLongPtrW,
-    ShowWindow, TranslateMessage, WM_COMMAND, WM_CTLCOLORBTN, WM_CTLCOLOREDIT, WM_CTLCOLORSTATIC,
-    WM_DESTROY, WM_NCCREATE, WM_NCDESTROY, WM_SETFONT, WM_SIZE, WNDCLASSW, WS_BORDER, WS_CHILD,
-    WS_OVERLAPPEDWINDOW, WS_TABSTOP, WS_VISIBLE,
+    ES_AUTOHSCROLL, ES_READONLY, GWLP_USERDATA, GetClientRect, GetMessageW, HMENU, IDC_ARROW,
+    LoadCursorW, MSG, MoveWindow, PostQuitMessage, RegisterClassW, SW_SHOW, SendMessageW,
+    SetWindowLongPtrW, ShowWindow, TranslateMessage, WM_COMMAND, WM_CTLCOLORBTN, WM_CTLCOLOREDIT,
+    WM_CTLCOLORSTATIC, WM_DESTROY, WM_NCCREATE, WM_NCDESTROY, WM_SETFONT, WM_SIZE, WNDCLASSW,
+    WS_BORDER, WS_CHILD, WS_DISABLED, WS_OVERLAPPEDWINDOW, WS_TABSTOP, WS_VISIBLE,
 };
 
 use crate::{ActionHandler, Element, Error, Result, Window};
@@ -324,6 +324,11 @@ fn render_element(
         "input" => {
             let (x, width) = layout_bounds(element, x, width);
             let height = control_height(element, INPUT_HEIGHT);
+            let input_style = if true_attribute(element, "readonly") {
+                ES_READONLY as u32
+            } else {
+                0
+            };
             let hwnd = create_control(
                 "EDIT",
                 element.text_content().unwrap_or_default(),
@@ -333,7 +338,13 @@ fn render_element(
                 y,
                 width,
                 height,
-                WS_CHILD | WS_VISIBLE | WS_TABSTOP | WS_BORDER | ES_AUTOHSCROLL as u32,
+                WS_CHILD
+                    | WS_VISIBLE
+                    | WS_TABSTOP
+                    | WS_BORDER
+                    | ES_AUTOHSCROLL as u32
+                    | input_style
+                    | disabled_style(element),
                 null_mut(),
             )?;
             apply_text_style(hwnd, element, state);
@@ -361,12 +372,16 @@ fn render_element(
                 y,
                 width,
                 height,
-                WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_AUTOCHECKBOX as u32,
+                WS_CHILD
+                    | WS_VISIBLE
+                    | WS_TABSTOP
+                    | BS_AUTOCHECKBOX as u32
+                    | disabled_style(element),
                 control_id as isize as HMENU,
             )?;
             apply_text_style(hwnd, element, state);
 
-            if checked_attribute(element) {
+            if true_attribute(element, "checked") {
                 unsafe {
                     SendMessageW(hwnd, BM_SETCHECK, 1, 0);
                 }
@@ -382,7 +397,9 @@ fn render_element(
             let control_id = action_attribute(element)
                 .map(|action| state.register_action(action))
                 .unwrap_or_default();
-            let button_style = if attribute_value(element, "variant") == Some("primary") {
+            let button_style = if true_attribute(element, "default")
+                || attribute_value(element, "variant") == Some("primary")
+            {
                 BS_DEFPUSHBUTTON as u32
             } else {
                 BS_PUSHBUTTON as u32
@@ -397,7 +414,7 @@ fn render_element(
                 y,
                 width,
                 height,
-                WS_CHILD | WS_VISIBLE | WS_TABSTOP | button_style,
+                WS_CHILD | WS_VISIBLE | WS_TABSTOP | button_style | disabled_style(element),
                 control_id as isize as HMENU,
             )?;
             apply_text_style(hwnd, element, state);
@@ -503,13 +520,17 @@ fn layout_column<'a>(
 
 fn layout_bounds(element: &Element, x: i32, width: i32) -> (i32, i32) {
     let available_width = width;
-    let width = match attribute_value(element, "width")
-        .and_then(|value| value.parse().ok())
-        .or_else(|| attribute_value(element, "max_width").and_then(|value| value.parse().ok()))
-    {
-        Some(max_width) => width.min(max_width).max(1),
-        None => width,
-    };
+    let mut width = attribute_i32(element, "width").unwrap_or(available_width);
+
+    if let Some(min_width) = attribute_i32(element, "min_width") {
+        width = width.max(min_width);
+    }
+
+    if let Some(max_width) = attribute_i32(element, "max_width") {
+        width = width.min(max_width);
+    }
+
+    width = width.max(1);
 
     let x = match attribute_value(element, "align") {
         Some("center") => x + (available_width - width).max(0) / 2,
@@ -576,6 +597,14 @@ fn set_control_font(hwnd: HWND, font: HFONT) {
 
     unsafe {
         SendMessageW(hwnd, WM_SETFONT, font as WPARAM, 1);
+    }
+}
+
+fn disabled_style(element: &Element) -> u32 {
+    if true_attribute(element, "disabled") {
+        WS_DISABLED
+    } else {
+        0
     }
 }
 
@@ -799,22 +828,18 @@ fn action_attribute(element: &Element) -> Option<&str> {
     attribute_value(element, "on_click").or_else(|| attribute_value(element, "on_toggle"))
 }
 
-fn checked_attribute(element: &Element) -> bool {
-    attribute_value(element, "checked") == Some("true")
+fn true_attribute(element: &Element, name: &str) -> bool {
+    attribute_value(element, name) == Some("true")
 }
 
 fn control_height(element: &Element, default_height: i32) -> i32 {
-    attribute_value(element, "height")
-        .and_then(|value| value.parse().ok())
+    attribute_i32(element, "height")
         .unwrap_or(default_height)
         .max(1)
 }
 
 fn gap(element: &Element) -> i32 {
-    attribute_value(element, "gap")
-        .and_then(|value| value.parse().ok())
-        .unwrap_or(COLUMN_GAP)
-        .max(0)
+    attribute_i32(element, "gap").unwrap_or(COLUMN_GAP).max(0)
 }
 
 fn font_weight(element: &Element) -> i32 {
@@ -833,10 +858,13 @@ fn default_font_size(element: &Element) -> i32 {
 }
 
 fn spacer_height(element: &Element) -> i32 {
-    attribute_value(element, "height")
-        .and_then(|value| value.parse().ok())
+    attribute_i32(element, "height")
         .unwrap_or(COLUMN_GAP)
         .max(0)
+}
+
+fn attribute_i32(element: &Element, name: &str) -> Option<i32> {
+    attribute_value(element, name).and_then(|value| value.parse().ok())
 }
 
 fn attribute_value<'a>(element: &'a Element, name: &str) -> Option<&'a str> {

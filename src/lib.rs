@@ -1,7 +1,7 @@
 //! A lightweight Rust UI library for native Windows apps.
 //!
 //! The crate exposes a minimal virtual UI tree and starter widgets that can be
-//! expanded into a renderer, native backend, or web backend over time.
+//! rendered by a Win32 backend using native Windows controls.
 
 pub mod element;
 pub mod error;
@@ -16,6 +16,7 @@ pub use element::{Attribute, Element};
 pub use error::{Error, Result};
 pub use style::{Align, Color, FontWeight, Style};
 pub use widget::Widget;
+pub use widgets::ButtonVariant;
 pub use window::{ActionHandler, Window};
 
 #[cfg(test)]
@@ -114,7 +115,14 @@ mod tests {
     #[test]
     fn applies_widget_styles() {
         let form = Form::new()
-            .style(Style::new().max_width(380).gap(12).align(Align::Center))
+            .style(
+                Style::new()
+                    .width(420)
+                    .min_width(320)
+                    .max_width(480)
+                    .gap(12)
+                    .align(Align::Center),
+            )
             .child(
                 Heading::new("Create your account").style(
                     Style::new()
@@ -133,12 +141,16 @@ mod tests {
 
         let element = form.render();
 
-        assert_eq!(element.attributes()[0].name(), "max_width");
-        assert_eq!(element.attributes()[0].value(), "380");
-        assert_eq!(element.attributes()[1].name(), "gap");
-        assert_eq!(element.attributes()[1].value(), "12");
-        assert_eq!(element.attributes()[2].name(), "align");
-        assert_eq!(element.attributes()[2].value(), "center");
+        assert_eq!(element.attributes()[0].name(), "width");
+        assert_eq!(element.attributes()[0].value(), "420");
+        assert_eq!(element.attributes()[1].name(), "min_width");
+        assert_eq!(element.attributes()[1].value(), "320");
+        assert_eq!(element.attributes()[2].name(), "max_width");
+        assert_eq!(element.attributes()[2].value(), "480");
+        assert_eq!(element.attributes()[3].name(), "gap");
+        assert_eq!(element.attributes()[3].value(), "12");
+        assert_eq!(element.attributes()[4].name(), "align");
+        assert_eq!(element.attributes()[4].value(), "center");
         assert_eq!(element.children()[0].attributes()[0].name(), "font_size");
         assert_eq!(element.children()[0].attributes()[0].value(), "24");
         assert_eq!(element.children()[0].attributes()[1].name(), "font_weight");
@@ -149,6 +161,60 @@ mod tests {
         assert_eq!(element.children()[1].attributes()[0].value(), "34");
         assert_eq!(element.children()[1].attributes()[1].name(), "background");
         assert_eq!(element.children()[1].attributes()[1].value(), "#ffffff");
+    }
+
+    #[test]
+    fn renders_extended_control_state() {
+        let app = Column::new()
+            .child(
+                Button::new("Save")
+                    .variant(ButtonVariant::Primary)
+                    .default()
+                    .disabled(true)
+                    .on_click("save"),
+            )
+            .child(
+                Input::new()
+                    .name("email")
+                    .value("hello@example.com")
+                    .placeholder("Email")
+                    .disabled(true)
+                    .readonly(true),
+            )
+            .child(
+                Checkbox::new("Subscribe")
+                    .checked(true)
+                    .disabled(true)
+                    .on_toggle("subscribe"),
+            );
+
+        let element = app.render();
+        let button = &element.children()[0];
+        let input = &element.children()[1];
+        let checkbox = &element.children()[2];
+
+        assert_eq!(button.attributes()[0].name(), "variant");
+        assert_eq!(button.attributes()[0].value(), "primary");
+        assert_eq!(button.attributes()[1].name(), "default");
+        assert_eq!(button.attributes()[1].value(), "true");
+        assert_eq!(button.attributes()[2].name(), "disabled");
+        assert_eq!(button.attributes()[2].value(), "true");
+        assert_eq!(button.attributes()[3].name(), "on_click");
+        assert_eq!(button.attributes()[3].value(), "save");
+
+        assert_eq!(input.attributes()[0].name(), "name");
+        assert_eq!(input.attributes()[1].name(), "placeholder");
+        assert_eq!(input.attributes()[2].name(), "disabled");
+        assert_eq!(input.attributes()[2].value(), "true");
+        assert_eq!(input.attributes()[3].name(), "readonly");
+        assert_eq!(input.attributes()[3].value(), "true");
+        assert_eq!(input.text_content(), Some("hello@example.com"));
+
+        assert_eq!(checkbox.attributes()[0].name(), "checked");
+        assert_eq!(checkbox.attributes()[1].name(), "disabled");
+        assert_eq!(checkbox.attributes()[1].value(), "true");
+        assert_eq!(checkbox.attributes()[2].name(), "on_toggle");
+        assert_eq!(checkbox.attributes()[2].value(), "subscribe");
     }
 
     #[test]

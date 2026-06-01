@@ -30,8 +30,17 @@ impl Widget for Text {
 pub struct Button {
     label: String,
     action: Option<String>,
-    primary: bool,
+    variant: ButtonVariant,
+    is_default: bool,
+    disabled: bool,
     style: Style,
+}
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum ButtonVariant {
+    #[default]
+    Normal,
+    Primary,
 }
 
 impl Button {
@@ -39,7 +48,9 @@ impl Button {
         Self {
             label: label.into(),
             action: None,
-            primary: false,
+            variant: ButtonVariant::Normal,
+            is_default: false,
+            disabled: false,
             style: Style::new(),
         }
     }
@@ -50,7 +61,22 @@ impl Button {
     }
 
     pub fn primary(mut self) -> Self {
-        self.primary = true;
+        self.variant = ButtonVariant::Primary;
+        self
+    }
+
+    pub fn variant(mut self, variant: ButtonVariant) -> Self {
+        self.variant = variant;
+        self
+    }
+
+    pub fn default(mut self) -> Self {
+        self.is_default = true;
+        self
+    }
+
+    pub fn disabled(mut self, disabled: bool) -> Self {
+        self.disabled = disabled;
         self
     }
 
@@ -64,8 +90,16 @@ impl Widget for Button {
     fn render(&self) -> Element {
         let mut element = Element::new("button").with_text(self.label.clone());
 
-        if self.primary {
-            element = element.with_attribute("variant", "primary");
+        if self.variant != ButtonVariant::Normal {
+            element = element.with_attribute("variant", self.variant.as_str());
+        }
+
+        if self.is_default {
+            element = element.with_attribute("default", "true");
+        }
+
+        if self.disabled {
+            element = element.with_attribute("disabled", "true");
         }
 
         let element = match &self.action {
@@ -74,6 +108,15 @@ impl Widget for Button {
         };
 
         self.style.apply_to(element)
+    }
+}
+
+impl ButtonVariant {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Normal => "normal",
+            Self::Primary => "primary",
+        }
     }
 }
 
@@ -236,6 +279,8 @@ pub struct Input {
     name: Option<String>,
     value: String,
     placeholder: Option<String>,
+    disabled: bool,
+    readonly: bool,
     style: Style,
 }
 
@@ -259,6 +304,16 @@ impl Input {
         self
     }
 
+    pub fn disabled(mut self, disabled: bool) -> Self {
+        self.disabled = disabled;
+        self
+    }
+
+    pub fn readonly(mut self, readonly: bool) -> Self {
+        self.readonly = readonly;
+        self
+    }
+
     pub fn style(mut self, style: Style) -> Self {
         self.style = style;
         self
@@ -277,6 +332,14 @@ impl Widget for Input {
             element = element.with_attribute("placeholder", placeholder.clone());
         }
 
+        if self.disabled {
+            element = element.with_attribute("disabled", "true");
+        }
+
+        if self.readonly {
+            element = element.with_attribute("readonly", "true");
+        }
+
         self.style.apply_to(element)
     }
 }
@@ -286,6 +349,7 @@ pub struct Checkbox {
     label: String,
     name: Option<String>,
     checked: bool,
+    disabled: bool,
     action: Option<String>,
     style: Style,
 }
@@ -296,6 +360,7 @@ impl Checkbox {
             label: label.into(),
             name: None,
             checked: false,
+            disabled: false,
             action: None,
             style: Style::new(),
         }
@@ -308,6 +373,11 @@ impl Checkbox {
 
     pub fn checked(mut self, checked: bool) -> Self {
         self.checked = checked;
+        self
+    }
+
+    pub fn disabled(mut self, disabled: bool) -> Self {
+        self.disabled = disabled;
         self
     }
 
@@ -332,6 +402,10 @@ impl Widget for Checkbox {
 
         if self.checked {
             element = element.with_attribute("checked", "true");
+        }
+
+        if self.disabled {
+            element = element.with_attribute("disabled", "true");
         }
 
         if let Some(action) = &self.action {
