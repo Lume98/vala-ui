@@ -6,6 +6,9 @@ description = "A lightweight Rust UI library for native Windows apps."
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 
+[dev-dependencies]
+iced = "0.12"
+
 [dependencies]
 windows-sys = { version = "0.59", features = [
     "Win32_Foundation",
